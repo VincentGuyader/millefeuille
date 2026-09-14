@@ -1,8 +1,9 @@
-name: Deploy site
+name: Tests et déploiement
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -15,7 +16,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Installer testthat et jsonlite
+        run: Rscript -e 'install.packages(c("testthat", "jsonlite"))'
+
+      - name: Golden master en R natif
+        run: Rscript tests/run.R
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Golden master dans webR
+        working-directory: tests
+        run: |
+          npm install --omit=dev
+          npm run webr
+
   deploy:
+    needs: tests
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -23,13 +51,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Préparer le site
+        run: |
+          mkdir site
+          cp index.html plieur.R site/
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: site
 
       - name: Deploy
         id: deployment
