@@ -87,6 +87,8 @@ const CASES = [
   ['pdf-texte',     'etroit', cfg({mot:'Été (test) \\ 日本 \u{1F600} ok', h:205.5, np:480, tech:3})],
   ['pdf-vide',      'point',  cfg({mot:'', minf:50})],
   ['pdf-pages',     'bruit',  cfg({tech:3, np:1400, minf:1, gap:0})],
+  ['zero-plis',     'mot',    cfg({minf:500})],
+  ['negatif',       'mot',    cfg({h:40, mt:0, mb:90, minf:-5, tech:3})],
 ];
 
 const outDir = path.join(__dirname, '..', 'fixtures');

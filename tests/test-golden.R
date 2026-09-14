@@ -69,4 +69,15 @@ test_that("un mot vide laisse quand meme les vagues", {
   res <- build(cfg, glyph = NULL)
   expect_gt(nrow(res$folds), 0)
   expect_equal(res$stats$sheets, res$sheets)
+  res_na <- build(cfg, glyph = NA)
+  expect_identical(res_na$folds, res$folds)
+})
+
+test_that("zero pli donne des colonnes numeriques, un CSV reduit a l'en-tete et un PDF d'une page", {
+  folds <- mmf(matrix(FALSE, nrow = NR, ncol = 3), page_h = 205, mt = 20, mb = 20,
+               min_fold = 5, gap = 4, max_marks = 1)
+  expect_identical(sapply(folds, class), c(sheet = "integer", a = "numeric", b = "numeric"))
+  expect_identical(make_csv(folds), "\ufefffeuille;repere_1;repere_2;repere_3;repere_4;repere_5;repere_6\n")
+  pdf <- make_pdf(list(np = 480, h = 205, mt = 20, mb = 20, tech = 1, mot = "x"), folds = folds)
+  expect_true(grepl("/Count 1 ", rawToChar(pdf), fixed = TRUE))
 })

@@ -20,25 +20,44 @@ js_round <- function(v) {
 }
 
 to_fixed1 <- function(x) {
+  if (length(x) == 0) {
+    return(numeric(0))
+  }
   tie <- (x * 4 == floor(x * 4)) & (x * 2 != floor(x * 2))
-  ifelse(tie, ceiling(x * 10) / 10, as.numeric(sprintf("%.1f", x)))
+  out <- ifelse(tie, sign(x) * ceiling(abs(x) * 10) / 10, as.numeric(sprintf("%.1f", x)))
+  out + 0
 }
 
 # Un nombre ecrit comme JavaScript l'ecrirait : le plus court texte qui
 # redonne exactement la meme valeur. Prevu pour les grandeurs de la page
 # (millimetres, points PDF, nombres de pages), pas pour les tres petits nombres.
+# Le PDF repete quelques dizaines de valeurs des milliers de fois, d'ou le cache.
+js_num_cache <- new.env(parent = emptyenv())
+
 js_num <- function(x) {
   vapply(x, FUN.VALUE = character(1), FUN = function(v) {
-    if (v == floor(v) && abs(v) < 1e21) {
-      return(sprintf("%.0f", v))
+    key <- sprintf("%a", v)
+    hit <- js_num_cache[[key]]
+    if (!is.null(hit)) {
+      return(hit)
     }
-    for (d in 1:17) {
-      s <- formatC(v, digits = d, format = "fg")
-      if (as.numeric(s) == v) {
-        return(s)
+    s <- NULL
+    if (v == floor(v) && abs(v) < 1e21) {
+      s <- sprintf("%.0f", v)
+    } else {
+      for (d in 1:17) {
+        cand <- formatC(v, digits = d, format = "fg", decimal.mark = ".")
+        if (as.numeric(cand) == v) {
+          s <- cand
+          break
+        }
+      }
+      if (is.null(s)) {
+        s <- formatC(v, digits = 17, format = "fg", decimal.mark = ".")
       }
     }
-    formatC(v, digits = 17, format = "fg")
+    assign(key, value = s, envir = js_num_cache)
+    s
   })
 }
 
@@ -76,7 +95,12 @@ ribbon <- function(n, amp, cycles, thick, mirror) {
   j <- seq_len(n) - 1
   s <- sin(2 * pi * cycles * (j + 0.5) / n)
   ct <- base + amp * s
-  cb <- 1 - base + amp * (if (mirror) -s else s)
+  flip <- if (mirror) {
+    -s
+  } else {
+    s
+  }
+  cb <- 1 - base + amp * flip
   r <- (seq_len(NR) - 0.5) / NR
   abs(outer(r, ct, FUN = "-")) <= half | abs(outer(r, cb, FUN = "-")) <= half
 }
@@ -144,7 +168,7 @@ mmf <- function(ink, page_h, mt, mb, min_fold, gap, max_marks) {
       s_out <- s_out[chosen]
       e_out <- e_out[chosen]
     }
-    sheet <- c(sheet, rep(j, length(s_out)))
+    sheet <- c(sheet, rep(j, times = length(s_out)))
     a_all <- c(a_all, s_out)
     b_all <- c(b_all, e_out)
   }
@@ -163,13 +187,29 @@ build <- function(cfg, glyph = NULL) {
   u <- sample_u(sheets, angle_deg = cfg$ang, mode = cfg$proj)
   word_moves <- cfg$ondul %in% c("mot", "deux")
   has_band <- cfg$ondul %in% c("bloc", "deux")
-  amp_w <- if (word_moves) cfg$amp else 0
-  amp_b <- if (has_band) cfg$ampb else 0
-  thk <- if (has_band) cfg$thick else 0
+  amp_w <- if (word_moves) {
+    cfg$amp
+  } else {
+    0
+  }
+  amp_b <- if (has_band) {
+    cfg$ampb
+  } else {
+    0
+  }
+  thk <- if (has_band) {
+    cfg$thick
+  } else {
+    0
+  }
   off <- wave(sheets, amp = amp_w, cycles = cfg$cyc)
   band <- ribbon(sheets, amp = amp_b, cycles = cfg$cyc, thick = thk, mirror = isTRUE(cfg$mir))
 
-  lo <- if (thk > 0) thk + 2 * amp_b + 0.03 + amp_w else amp_w
+  lo <- if (thk > 0) {
+    thk + 2 * amp_b + 0.03 + amp_w
+  } else {
+    amp_w
+  }
   hi <- 1 - lo
   if (hi - lo < 0.2) {
     lo <- 0.4
@@ -186,21 +226,45 @@ build <- function(cfg, glyph = NULL) {
 }
 
 # Six cases par feuille : debut et fin de chaque bande, en texte, completees
-# par des vides. Renvoie une liste nommee par numero de feuille.
+# par des vides. Renvoie une matrice de texte, une ligne par feuille pliee,
+# dont les noms de lignes sont les numeros de feuille.
 cells_by_sheet <- function(folds) {
-  lapply(split(folds, f = folds$sheet), FUN = function(fs) {
-    v <- as.vector(rbind(sprintf("%.1f", fs$a), sprintf("%.1f", fs$b)))
-    c(v, rep("", 6))[1:6]
-  })
+  sheets <- unique(folds$sheet)
+  m <- matrix("", nrow = length(sheets), ncol = 6)
+  rownames(m) <- as.character(sheets)
+  if (nrow(folds) == 0) {
+    return(m)
+  }
+  row <- match(folds$sheet, table = sheets)
+  pos <- ave(seq_len(nrow(folds)), folds$sheet, FUN = seq_along)
+  keep <- pos <= 3
+  m[cbind(row[keep], 2 * pos[keep] - 1)] <- sprintf("%.1f", folds$a[keep])
+  m[cbind(row[keep], 2 * pos[keep])] <- sprintf("%.1f", folds$b[keep])
+  m
+}
+
+paste_cols <- function(m, sep) {
+  do.call(paste, args = c(lapply(seq_len(ncol(m)), FUN = function(j) m[, j]), sep = sep))
+}
+
+# Une ligne de texte par feuille pliee : le numero, un separateur, les six cases.
+# Attention a paste0, qui transforme une entree vide en une ligne vide.
+sheet_lines <- function(cells, sep_num, sep_cells) {
+  if (nrow(cells) == 0) {
+    return(character(0))
+  }
+  paste0(rownames(cells), sep_num, paste_cols(cells, sep = sep_cells))
 }
 
 make_csv <- function(folds) {
   cells <- cells_by_sheet(folds)
-  lines <- vapply(names(cells), FUN.VALUE = character(1), FUN = function(s) {
-    paste0(s, ";", paste(cells[[s]], collapse = ";"), "\n")
-  })
-  paste0("\ufeff", "feuille;repere_1;repere_2;repere_3;repere_4;repere_5;repere_6\n",
-         paste(lines, collapse = ""))
+  lines <- sheet_lines(cells, sep_num = ";", sep_cells = ";")
+  body <- if (length(lines) == 0) {
+    ""
+  } else {
+    paste0(lines, "\n", collapse = "")
+  }
+  paste0("\ufeff", "feuille;repere_1;repere_2;repere_3;repere_4;repere_5;repere_6\n", body)
 }
 
 # ---------- PDF ----------
@@ -209,21 +273,14 @@ make_csv <- function(folds) {
 # pour le titre, encodage WinAnsi. Tout caractere au-dela de 255 devient "?".
 
 pdf_text <- function(s) {
-  s <- gsub("([\\\\()])", "\\\\\\1", s)
+  s <- gsub("([\\\\()])", "\\\\\\1", x = s)
   cp <- utf8ToInt(s)
   if (length(cp) == 0) {
     return(raw(0))
   }
-  cp <- unlist(lapply(cp, FUN = function(v) {
-    if (v > 65535) {
-      c(63L, 63L)
-    } else if (v > 255) {
-      63L
-    } else {
-      v
-    }
-  }))
-  as.raw(cp)
+  times <- ifelse(cp > 65535, 2L, 1L)
+  cp[cp > 255] <- 63L
+  as.raw(rep(cp, times = times))
 }
 
 pdf_line <- function(font, size, x, y, text) {
@@ -242,9 +299,10 @@ make_pdf <- function(cfg, folds) {
   ml <- 48
   mt <- 54
   cells <- cells_by_sheet(folds)
-  rows <- vapply(names(cells), FUN.VALUE = character(1), FUN = function(s) {
-    paste0(pad_start(s, width = 3), "  ", paste(pad_start(cells[[s]], width = 5), collapse = " "))
-  })
+  padded <- cells
+  padded[] <- pad_start(cells, width = 5)
+  rownames(padded) <- pad_start(rownames(cells), width = 3)
+  rows <- sheet_lines(padded, sep_num = "  ", sep_cells = " ")
   head <- paste0("Fl.  ", paste(pad_start(as.character(1:6), width = 5), collapse = " "))
 
   per_col <- 56
@@ -257,25 +315,37 @@ make_pdf <- function(cfg, folds) {
 
   meta <- paste0(js_num(cfg$np), " pages  .  page de ", js_num(cfg$h), " mm  .  marges ",
                  js_num(cfg$mt), "/", js_num(cfg$mb), " mm  .  ",
-                 if (cfg$tech == 1) "pliage simple" else "avec decoupe")
+                 if (cfg$tech == 1) {
+                   "pliage simple"
+                 } else {
+                   "avec decoupe"
+                 })
 
   contents <- lapply(seq_len(n_pages), FUN = function(p) {
     chunk <- pages[[p]]
     y0 <- H - mt - 52
     rh <- 11.6
-    t <- c(pdf_line("F2", size = 17, x = ml, y = H - mt, text = if (is.null(cfg$mot)) "" else cfg$mot),
+    title <- if (is.null(cfg$mot)) {
+      ""
+    } else {
+      cfg$mot
+    }
+    t <- c(pdf_line("F2", size = 17, x = ml, y = H - mt, text = title),
            pdf_line("F1", size = 8, x = ml, y = H - mt - 16, text = meta),
            pdf_line("F1", size = 8, x = ml, y = H - mt - 28,
                     text = paste0("Mesures en mm depuis le haut. Page ", p, "/", n_pages)))
     for (col in 0:1) {
       t <- c(t, pdf_line("F1", size = 8, x = ml + col * 252, y = y0 + 13, text = head))
     }
-    for (k in seq_along(chunk)) {
-      col <- (k - 1) %/% per_col
-      i <- (k - 1) %% per_col
-      t <- c(t, pdf_line("F1", size = 8, x = ml + col * 252, y = y0 - i * rh, text = chunk[k]))
-    }
-    t
+    k <- seq_along(chunk)
+    col <- (k - 1) %/% per_col
+    i <- (k - 1) %% per_col
+    opens <- sprintf("BT /F1 8 Tf %s %s Td (", js_num(ml + col * 252), js_num(y0 - i * rh))
+    close <- charToRaw(") Tj ET\n")
+    lines <- lapply(k, FUN = function(kk) {
+      c(charToRaw(opens[kk]), pdf_text(chunk[kk]), close)
+    })
+    c(t, unlist(lines))
   })
 
   objs <- vector("list", 4 + 2 * n_pages)
