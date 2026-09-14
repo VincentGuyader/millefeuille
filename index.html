@@ -349,7 +349,7 @@
 <script>
 (() => {
 const $ = id => document.getElementById(id);
-let folds = [], nSheets = 0, view = 'fan';
+let folds = [], nSheets = 0, view = 'fan', cfgShown = null, nCalc = 0;
 
 /* ---------- moteur de calcul ----------
    Le calcul est ecrit en R (plieur.R) et tourne dans le navigateur grace a webR,
@@ -472,8 +472,12 @@ async function gallery(){
     b.onclick = () => { apply(p); location.hash = '#generateur'; };
     box.appendChild(b);
     const cfg = presetCfg(p);
-    const {sheets, folds} = await compute(cfg, false);
-    draw(b.querySelector('canvas'), cfg, sheets, folds, 'fan');
+    try {
+      const {sheets, folds} = await compute(cfg, false);
+      draw(b.querySelector('canvas'), cfg, sheets, folds, 'fan');
+    } catch (e) {
+      b.querySelector('.cap span').textContent = 'Aperçu indisponible';
+    }
   }
 }
 
@@ -517,7 +521,7 @@ function sync(){
   } else w.className = 'warn';
 }
 function show(cfg, r){
-  nSheets = r.sheets; folds = r.folds;
+  nSheets = r.sheets; folds = r.folds; cfgShown = cfg;
   draw($('cv'), cfg, nSheets, folds, view);
   $('sSheets').textContent = r.stats.sheets;
   $('sMarks').textContent = r.stats.marks;
@@ -525,6 +529,7 @@ function show(cfg, r){
   const m = grouped();
   $('tb').innerHTML = [...m.entries()].map(([s,fs]) =>
     `<tr><td>${s}</td>${cells(fs).map(v=>`<td>${v}</td>`).join('')}</tr>`).join('');
+  $('tb').dataset.calcul = String(++nCalc);
 }
 
 /* Un seul calcul a la fois ; si les reglages changent pendant le calcul,
@@ -538,10 +543,13 @@ async function run(){
     do {
       again = false;
       const cfg = readCfg();
-      show(cfg, await compute(cfg, true));
+      try {
+        show(cfg, await compute(cfg, true));
+        status('');
+      } catch (e) {
+        status('Le calcul a échoué : ' + e.message);
+      }
     } while (again);
-  } catch (e) {
-    status('Le calcul a échoué : ' + e.message);
   } finally { running = false; }
 }
 
@@ -550,10 +558,11 @@ let t; const debounce = () => { clearTimeout(t); t = setTimeout(run, 140); };
  'ondul','amp','ampb','thick','mir','cyc','minf','gap']
   .forEach(id => $(id).addEventListener('input', () => { sync(); debounce(); }));
 
+function redraw(){ draw($('cv'), cfgShown || readCfg(), nSheets, folds, view); }
 $('tFan').onclick = () => { view='fan'; $('tFan').setAttribute('aria-pressed','true');
-  $('tFlat').setAttribute('aria-pressed','false'); draw($('cv'), readCfg(), nSheets, folds, view); };
+  $('tFlat').setAttribute('aria-pressed','false'); redraw(); };
 $('tFlat').onclick = () => { view='flat'; $('tFlat').setAttribute('aria-pressed','true');
-  $('tFan').setAttribute('aria-pressed','false'); draw($('cv'), readCfg(), nSheets, folds, view); };
+  $('tFan').setAttribute('aria-pressed','false'); redraw(); };
 
 $('pr').onclick = () => window.print();
 
@@ -591,11 +600,14 @@ menu.addEventListener('click', e => e.stopPropagation());
 
 async function download(what){
   closeMenu();
-  if (!ready || running) return;
+  if (!ready) return;
+  if (running){ status('Le patron est en train de se recalculer, réessayez dans un instant.'); return; }
+  status(what === 'pdf' ? 'Préparation du PDF…' : 'Préparation du CSV…');
   try {
     const bytes = await exportBytes(what);
     if (what === 'pdf') save(bytes, 'application/pdf', fileBase()+'.pdf');
     else save(bytes, 'text/csv;charset=utf-8', fileBase()+'.csv');
+    status('');
   } catch (e) { status("L'export a échoué : " + e.message); }
 }
 $('dlPdf').onclick = () => download('pdf');
