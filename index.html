@@ -1,0 +1,683 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plieur · patrons de pliage de livre</title>
+<meta name="description" content="Générez gratuitement le patron de pliage d'un mot dans un livre.">
+<style>
+  :root{
+    --bg:#f4f3ef;
+    --ink:#14171a;
+    --ink-2:#5c6167;
+    --line:#dedcd4;
+    --dark:#1b2026;
+    --dark-2:#262d36;
+    --page:#efe9da;
+    --blue:#22456b;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font:400 17px/1.6 "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 22px}
+  section{padding:56px 0;border-top:1px solid var(--line)}
+  section:first-of-type{border-top:0}
+  h1,h2,h3{font-weight:400;letter-spacing:-.015em;margin:0}
+  h1{font-size:clamp(38px,9vw,64px);line-height:1}
+  h2{font-size:clamp(26px,5vw,34px);margin-bottom:10px}
+  h3{font-size:19px}
+  .lede{font-size:19px;color:var(--ink-2);max-width:46ch;margin:18px 0 0}
+  .kicker{
+    font:400 12px/1 ui-sans-serif,system-ui,sans-serif;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--blue);margin-bottom:14px;display:block;
+  }
+  p{margin:0 0 14px}
+  .muted{color:var(--ink-2)}
+
+  header.hero{padding:72px 0 56px}
+  header.hero em{font-style:italic;color:var(--ink-2)}
+  .cta{
+    display:inline-block;margin-top:28px;background:var(--ink);color:var(--bg);
+    text-decoration:none;padding:14px 26px;border-radius:2px;
+    font:400 16px/1 ui-sans-serif,system-ui,sans-serif;
+  }
+
+  /* galerie */
+  .gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;margin-top:28px}
+  .card{background:var(--dark);border-radius:3px;overflow:hidden;border:0;padding:0;
+        text-align:left;cursor:pointer;font:inherit;color:var(--page);display:block;width:100%}
+  .card canvas,.card img{display:block;width:100%;height:auto;background:var(--dark-2)}
+  .card .cap{padding:12px 14px 14px}
+  .card .cap strong{display:block;font-weight:400;font-size:18px}
+  .card .cap span{font:400 13px/1.4 ui-sans-serif,system-ui,sans-serif;color:#98a0aa}
+  .card:hover .cap strong,.card:focus-visible .cap strong{text-decoration:underline}
+
+  /* générateur */
+  .stage{background:var(--dark);border-radius:3px;padding:16px;margin-bottom:20px}
+  .stage canvas{display:block;width:100%;height:auto;background:var(--dark-2);border-radius:2px}
+  .tabs{display:flex;gap:8px;margin-top:12px}
+  .tabs button{
+    flex:1;background:transparent;color:#98a0aa;border:1px solid #3a434f;border-radius:2px;
+    padding:9px;cursor:pointer;font:400 14px/1 ui-sans-serif,system-ui,sans-serif;
+  }
+  .tabs button[aria-pressed=true]{background:var(--page);color:var(--dark);border-color:var(--page)}
+
+  .form{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .full{grid-column:1/-1}
+  label{display:block;font:400 13px/1.3 ui-sans-serif,system-ui,sans-serif;color:var(--ink-2);margin-bottom:6px}
+  input,select{
+    width:100%;padding:12px;border:1px solid var(--line);border-radius:2px;
+    background:#fff;color:var(--ink);font:inherit;font-size:16px;
+  }
+  input[type=range]{padding:0;border:0;background:none;accent-color:var(--blue)}
+  input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+  #mot{font-size:26px;padding:14px}
+
+  details.adv{margin-top:22px;border-top:1px solid var(--line);padding-top:18px}
+  details.adv>summary{
+    cursor:pointer;color:var(--blue);list-style:none;
+    font:400 15px/1 ui-sans-serif,system-ui,sans-serif;
+  }
+  details.adv>summary::-webkit-details-marker{display:none}
+  details.adv>summary::before{content:"+ ";font-family:ui-monospace,monospace}
+  details.adv[open]>summary::before{content:"− "}
+  details.adv .form{margin-top:20px}
+  .sep{grid-column:1/-1;font:400 13px/1 ui-sans-serif,system-ui,sans-serif;
+       letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);
+       border-bottom:1px solid var(--line);padding-bottom:8px;margin-top:6px}
+
+  .warn{display:none;margin:20px 0 0;padding:12px 14px;border-left:2px solid var(--blue);
+        background:#e9eef4;font-size:15px}
+  .warn.on{display:block}
+
+  .out{margin-top:34px}
+  .stats{display:flex;gap:30px;flex-wrap:wrap;margin-bottom:18px}
+  .stats b{display:block;font-size:26px;font-weight:400}
+  .stats span{font:400 13px/1.3 ui-sans-serif,system-ui,sans-serif;color:var(--ink-2)}
+  .scroll{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:3px;background:#fff}
+  table{width:100%;border-collapse:collapse;
+        font:400 13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  th,td{text-align:right;padding:7px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--ink-2);font-weight:400;position:sticky;top:0;background:#fff}
+  th:first-child,td:first-child{text-align:left}
+  .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .acts button{
+    background:var(--ink);color:var(--bg);border:0;border-radius:2px;padding:13px 22px;
+    cursor:pointer;font:400 15px/1 ui-sans-serif,system-ui,sans-serif;
+  }
+  .acts button.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+  .dlbox{position:relative}
+  .menu{
+    position:absolute;left:0;top:calc(100% + 6px);z-index:5;min-width:190px;
+    background:#fff;border:1px solid var(--line);border-radius:3px;
+    box-shadow:0 8px 26px rgba(20,23,26,.13);padding:5px;display:none;
+  }
+  .menu.on{display:block}
+  .menu button{
+    display:block;width:100%;background:transparent;color:var(--ink);border:0;
+    text-align:left;padding:11px 12px;border-radius:2px;cursor:pointer;
+    font:400 15px/1.25 ui-sans-serif,system-ui,sans-serif;
+  }
+  .menu button small{display:block;color:var(--ink-2);font-size:12.5px;margin-top:2px}
+  .menu button:hover,.menu button:focus-visible{background:#eef1f5}
+
+  /* tutoriel */
+  .video{
+    position:relative;aspect-ratio:16/9;background:var(--dark);border-radius:3px;
+    display:grid;place-items:center;margin:22px 0 34px;overflow:hidden;
+  }
+  .video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .video .ph{text-align:center;color:#98a0aa;padding:20px}
+  .video .ph svg{width:46px;height:46px;margin-bottom:10px}
+  .step{display:flex;gap:18px;padding:22px 0;border-top:1px solid var(--line)}
+  .num{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--blue);color:var(--blue);
+       display:grid;place-items:center;margin-top:2px;
+       font:400 14px/1 ui-monospace,monospace}
+  .step p{font-size:16px;color:var(--ink-2)}
+  .step p b{color:var(--ink);font-weight:400}
+  .step svg.dia{width:100%;max-width:340px;height:auto;margin-top:6px}
+
+  footer{padding:40px 0 60px;color:var(--ink-2);font-size:14px;border-top:1px solid var(--line)}
+
+  @media (max-width:560px){ .form{grid-template-columns:1fr} }
+  @media print{
+    body{background:#fff}
+    section,header,.stage,.gal,.acts,.video,details.adv,footer,.tabs,.warn{display:none!important}
+    .out{display:block!important;margin:0}
+    .scroll{max-height:none;border:0}
+  }
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <h1>Plieur</h1>
+  <p class="lede">Transformez un vieux roman en sculpture. Donnez un mot, récupérez la liste des plis à faire, page après page. <em>Gratuit, rien à installer.</em></p>
+  <a class="cta" href="#generateur">Créer mon patron</a>
+</header>
+
+<section>
+  <span class="kicker">Exemples</span>
+  <h2>Ce que ça donne</h2>
+  <p class="muted">Six livres, six réglages. Touchez-en un pour le charger dans le générateur.</p>
+  <!-- Pour remplacer un aperçu par une vraie photo :
+       <img src="photos/merci.jpg" alt="Livre plié au mot Merci"> à la place du <canvas>. -->
+  <div class="gal" id="gal"></div>
+</section>
+
+<section id="generateur">
+  <span class="kicker">Générateur</span>
+  <h2>Votre mot</h2>
+
+  <div class="stage">
+    <canvas id="cv" width="1400" height="600"></canvas>
+    <div class="tabs">
+      <button id="tFan" aria-pressed="true">Livre ouvert</button>
+      <button id="tFlat" aria-pressed="false">À plat</button>
+    </div>
+  </div>
+
+  <div class="form">
+    <div class="full">
+      <label for="mot">Le mot</label>
+      <input id="mot" value="Merci" autocomplete="off" spellcheck="false">
+    </div>
+    <div>
+      <label for="police">Style de lettres</label>
+      <select id="police">
+        <option value="'Snell Roundhand','Brush Script MT',cursive">Anglaise</option>
+        <option value="Georgia,'Times New Roman',serif" selected>Classique</option>
+        <option value="Impact,Haettenschweiler,sans-serif">Bâton large</option>
+        <option value="system-ui,sans-serif">Moderne</option>
+      </select>
+    </div>
+    <div>
+      <label for="np">Nombre de pages du livre</label>
+      <input id="np" type="number" value="480" min="120" max="2000" step="10">
+    </div>
+    <div>
+      <label for="h">Hauteur d'une page (mm)</label>
+      <input id="h" type="number" value="205" min="90" max="400">
+    </div>
+    <div>
+      <label for="tech">Méthode</label>
+      <select id="tech">
+        <option value="1" selected>Pliage simple</option>
+        <option value="3">Avec découpe</option>
+      </select>
+    </div>
+  </div>
+
+  <details class="adv">
+    <summary>Réglages avancés</summary>
+    <div class="form">
+      <div class="sep">Marges et feuilles</div>
+      <div><label for="mt">Marge haute (mm)</label><input id="mt" type="number" value="20" min="0" max="90"></div>
+      <div><label for="mb">Marge basse (mm)</label><input id="mb" type="number" value="20" min="0" max="90"></div>
+      <div><label for="garde">Feuilles laissées libres de chaque côté</label><input id="garde" type="number" value="18" min="0" max="120"></div>
+      <div><label for="pas">Plier une feuille sur</label>
+        <select id="pas"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option></select></div>
+
+      <div class="sep">Forme du mot</div>
+      <div><label for="gras">Épaisseur des lettres</label>
+        <select id="gras"><option value="400">Fine</option><option value="700" selected>Épaisse</option><option value="900">Très épaisse</option></select></div>
+      <div><label for="proj">Compensation de l'ouverture</label>
+        <select id="proj"><option value="fan" selected>Activée</option><option value="linear">Désactivée</option></select></div>
+      <div class="full"><label for="ang">Angle d'ouverture du livre : <span id="angv">180</span>°</label>
+        <input id="ang" type="range" min="60" max="180" step="5" value="180"></div>
+
+      <div class="sep">Ondulation</div>
+      <div class="full"><label for="ondul">Ce qui ondule</label>
+        <select id="ondul">
+          <option value="none" selected>Rien</option>
+          <option value="mot">Le mot</option>
+          <option value="bloc">Des vagues au-dessus et en dessous</option>
+          <option value="deux">Le mot et les vagues</option>
+        </select></div>
+      <div class="full" id="rAmp" hidden><label for="amp">Amplitude du mot : <span id="ampv">10</span> %</label>
+        <input id="amp" type="range" min="0" max="25" step="1" value="10"></div>
+      <div class="full" id="rAmpB" hidden><label for="ampb">Amplitude des vagues : <span id="ampbv">8</span> %</label>
+        <input id="ampb" type="range" min="0" max="20" step="1" value="8"></div>
+      <div id="rThick" hidden><label for="thick">Épaisseur des vagues (%)</label><input id="thick" type="number" value="6" min="1" max="20"></div>
+      <div id="rMir" hidden><label for="mir">Sens</label>
+        <select id="mir"><option value="0" selected>Parallèles</option><option value="1">En miroir</option></select></div>
+      <div class="full" id="rCyc" hidden><label for="cyc">Nombre de vagues : <span id="cycv">1</span></label>
+        <input id="cyc" type="range" min="0.25" max="4" step="0.25" value="1"></div>
+
+      <div class="sep">Finesse</div>
+      <div><label for="minf">Pli le plus court accepté (mm)</label><input id="minf" type="number" value="5" step="0.5" min="1"></div>
+      <div><label for="gap">Regrouper si écart inférieur à (mm)</label><input id="gap" type="number" value="4" step="0.5" min="0"></div>
+    </div>
+  </details>
+
+  <div class="warn" id="warn"></div>
+
+  <div class="out">
+    <div class="stats">
+      <div><b id="sSheets">—</b><span>feuilles à plier</span></div>
+      <div><b id="sMarks">—</b><span>repères à tracer</span></div>
+      <div><b id="sTime">—</b><span>heures de travail environ</span></div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Feuille</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th></tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+    <div class="acts">
+      <div class="dlbox">
+        <button id="dl" aria-haspopup="true" aria-expanded="false">Télécharger le patron</button>
+        <div class="menu" id="menu" role="menu">
+          <button id="dlPdf" role="menuitem">PDF<small>Prêt à imprimer, deux colonnes par page</small></button>
+          <button id="dlCsv" role="menuitem">CSV<small>Pour le retravailler dans un tableur</small></button>
+        </div>
+      </div>
+      <button id="pr" class="ghost">Imprimer</button>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="kicker">Tutoriel</span>
+  <h2>Comment plier</h2>
+
+  <div class="video" id="vid">
+    <!-- Quand la vidéo est prête :
+         <iframe src="https://www.youtube.com/embed/VOTRE_ID" title="Tutoriel de pliage"
+                 allowfullscreen loading="lazy"></iframe> -->
+    <div class="ph">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><path d="M10 8.5l6 3.5-6 3.5z"/></svg>
+      <div>La vidéo arrive bientôt.<br>En attendant, les étapes ci-dessous suffisent.</div>
+    </div>
+  </div>
+
+  <div class="step"><div class="num">1</div><div>
+    <h3>Choisir le livre</h3>
+    <p>Un roman de <b>400 à 700 pages</b>, au papier crème et mat. Le papier brillant ne garde pas le pli. Vérifiez que le dos est solide, c'est lui qui supportera tout le poids une fois le livre ouvert.</p>
+  </div></div>
+
+  <div class="step"><div class="num">2</div><div>
+    <h3>Mesurer</h3>
+    <p>La hauteur d'une page au réglet, livre fermé. Le nombre de pages est celui imprimé sur la dernière page numérotée. Reportez les deux dans le générateur, le reste fonctionne tel quel.</p>
+  </div></div>
+
+  <div class="step"><div class="num">3</div><div>
+    <h3>Tracer les repères</h3>
+    <p>Au crayon, d'un trait léger, sur la <b>tranche extérieure</b> de chaque feuille, en mesurant toujours depuis le haut. Gagnez du temps en graduant une bande de carton aux valeurs les plus fréquentes, puis en la posant le long de la tranche au lieu de reprendre le réglet à chaque fois.</p>
+  </div></div>
+
+  <div class="step"><div class="num">4</div><div>
+    <h3>Plier</h3>
+    <p>Rabattez le <b>coin du haut</b> vers le dos jusqu'au premier repère, puis le <b>coin du bas</b> jusqu'au second. La bande restée entre les deux garde sa largeur et ressort : c'est elle qui dessine la lettre. Marquez chaque pli à l'ongle.</p>
+    <svg class="dia" viewBox="0 0 320 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Schéma d'un pli">
+      <rect x="70" y="16" width="180" height="158" fill="#eceade" stroke="#c9c5b6"/>
+      <line x1="70" y1="12" x2="70" y2="178" stroke="#22456b" stroke-width="4"/>
+      <text x="62" y="99" fill="#5c6167" font-size="11" text-anchor="end" font-family="ui-sans-serif,sans-serif">dos</text>
+      <rect x="70" y="74" width="180" height="42" fill="#22456b" opacity=".12"/>
+      <line x1="250" y1="74" x2="152" y2="16" stroke="#22456b" stroke-width="2" stroke-dasharray="5 4"/>
+      <line x1="250" y1="116" x2="152" y2="174" stroke="#22456b" stroke-width="2" stroke-dasharray="5 4"/>
+      <line x1="250" y1="74" x2="268" y2="74" stroke="#22456b" stroke-width="2"/>
+      <line x1="250" y1="116" x2="268" y2="116" stroke="#22456b" stroke-width="2"/>
+      <text x="274" y="78" fill="#22456b" font-size="12" font-family="ui-monospace,monospace">1</text>
+      <text x="274" y="120" fill="#22456b" font-size="12" font-family="ui-monospace,monospace">2</text>
+      <path d="M212 40 q-16 10 -4 22" stroke="#5c6167" fill="none" stroke-width="1.4"/>
+      <path d="M208 63 l1 -9 l7 6 z" fill="#5c6167"/>
+      <path d="M212 150 q-16 -10 -4 -22" stroke="#5c6167" fill="none" stroke-width="1.4"/>
+      <path d="M208 127 l1 9 l7 -6 z" fill="#5c6167"/>
+      <text x="160" y="99" fill="#14171a" font-size="11" text-anchor="middle" font-family="ui-sans-serif,sans-serif">reste en relief</text>
+    </svg>
+  </div></div>
+
+  <div class="step"><div class="num">5</div><div>
+    <h3>Choisir sa méthode</h3>
+    <p>Le pliage simple ne fait ressortir <b>qu'une bande par feuille</b>. Il convient aux lettres ouvertes et aux écritures anglaises. Pour les lettres percées d'un trou (a, e, o, p) ou pour les vagues, choisissez « avec découpe » : on incise la tranche au cutter avant de rabattre.</p>
+  </div></div>
+</section>
+
+<footer>
+  <div class="wrap" style="padding:0">Plieur · les patrons sont calculés dans votre navigateur, rien n'est envoyé.</div>
+</footer>
+
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const NR = 200;
+let folds = [], nSheets = 0, view = 'fan';
+
+/* ---------- calcul ---------- */
+function sampleU(n, angleDeg, mode){
+  const out = new Array(n);
+  const a = angleDeg * Math.PI / 180;
+  for (let k = 0; k < n; k++){
+    const i = (k + 0.5) / n;
+    if (mode === 'linear' || angleDeg <= 0){ out[k] = i; continue; }
+    const phi = -a/2 + a*i;
+    out[k] = (Math.sin(phi) + Math.sin(a/2)) / (2*Math.sin(a/2));
+  }
+  return out;
+}
+function wave(n, amp, cycles){
+  const out = new Array(n).fill(0);
+  if (amp <= 0) return out;
+  for (let k = 0; k < n; k++)
+    out[k] = amp * Math.sin(2*Math.PI*cycles*(k+0.5)/n);
+  return out;
+}
+function ribbon(n, amp, cycles, thick, mirror){
+  const m = new Uint8Array(NR*n);
+  if (thick <= 0) return m;
+  const base = thick/2 + amp, half = thick/2;
+  for (let j = 0; j < n; j++){
+    const s = Math.sin(2*Math.PI*cycles*(j+0.5)/n);
+    const ct = base + amp*s;
+    const cb = 1 - base + amp*(mirror ? -s : s);
+    for (let i = 0; i < NR; i++){
+      const r = (i+0.5)/NR;
+      if (Math.abs(r-ct) <= half || Math.abs(r-cb) <= half) m[j*NR+i] = 1;
+    }
+  }
+  return m;
+}
+function mmf(ink, n, pageH, mt, mb, minFold, gap, maxMarks){
+  const usable = pageH - mt - mb, res = [];
+  for (let j = 0; j < n; j++){
+    const S = [], E = [];
+    let run = -1;
+    for (let i = 0; i < NR; i++){
+      const on = ink[j*NR+i] === 1;
+      if (on && run < 0) run = i;
+      if ((!on || i === NR-1) && run >= 0){
+        const end = on ? i+1 : i;
+        const a = mt + run/NR*usable, b = mt + end/NR*usable;
+        const last = S.length-1;
+        if (last >= 0 && a - E[last] < gap) E[last] = b;
+        else { S.push(a); E.push(b); }
+        run = -1;
+      }
+    }
+    let bands = S.map((a,k) => ({a, b:E[k]})).filter(o => o.b-o.a >= minFold);
+    if (bands.length > maxMarks)
+      bands = bands.map((o,k)=>({o,k})).sort((x,y)=>(y.o.b-y.o.a)-(x.o.b-x.o.a))
+                   .slice(0,maxMarks).sort((x,y)=>x.k-y.k).map(x=>x.o);
+    bands.forEach(o => res.push({sheet:j+1, a:+o.a.toFixed(1), b:+o.b.toFixed(1)}));
+  }
+  return res;
+}
+
+/* ---------- lettres ---------- */
+function raster(txt, family, weight){
+  const c = document.createElement('canvas'), px = 220;
+  const g0 = c.getContext('2d');
+  g0.font = `${weight} ${px}px ${family}`;
+  c.width = Math.max(30, Math.ceil(g0.measureText(txt||' ').width) + 40);
+  c.height = Math.ceil(px*1.8);
+  const g = c.getContext('2d');
+  g.font = `${weight} ${px}px ${family}`;
+  g.textBaseline = 'middle'; g.fillStyle = '#000';
+  g.fillText(txt || ' ', 20, c.height/2);
+  const d = g.getImageData(0,0,c.width,c.height).data;
+  let x0=c.width, x1=-1, y0=c.height, y1=-1;
+  for (let y=0;y<c.height;y++) for (let x=0;x<c.width;x++)
+    if (d[(y*c.width+x)*4+3] > 128){
+      if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y;
+    }
+  return x1 < 0 ? null : {d, W:c.width, x0, x1, y0, y1};
+}
+function inkAt(r, u, row, off, lo, hi){
+  const x = Math.round(r.x0 + u*(r.x1-r.x0));
+  const dv = ((row+0.5)/NR - off - lo) / (hi-lo);
+  if (dv < 0 || dv > 1) return 0;
+  const y = Math.round(r.y0 + dv*(r.y1-r.y0));
+  return r.d[(y*r.W+x)*4+3] > 128 ? 1 : 0;
+}
+
+/* ---------- pipeline ---------- */
+function build(cfg){
+  const sheets = Math.max(1, Math.floor((Math.floor(cfg.np/2) - 2*cfg.garde)/cfg.pas));
+  const u = sampleU(sheets, cfg.ang, cfg.proj);
+  const ampW = (cfg.ondul==='mot'||cfg.ondul==='deux') ? cfg.amp : 0;
+  const ampB = (cfg.ondul==='bloc'||cfg.ondul==='deux') ? cfg.ampb : 0;
+  const thk  = (cfg.ondul==='bloc'||cfg.ondul==='deux') ? cfg.thick : 0;
+  const off  = wave(sheets, ampW, cfg.cyc);
+  const band = ribbon(sheets, ampB, cfg.cyc, thk, cfg.mir);
+
+  let lo = thk > 0 ? thk + 2*ampB + 0.03 + ampW : ampW;
+  let hi = 1 - lo;
+  if (hi - lo < 0.2){ lo = 0.4; hi = 0.6; }
+
+  const r = raster(cfg.mot, cfg.police, cfg.gras);
+  const ink = new Uint8Array(NR*sheets);
+  if (r) for (let j=0;j<sheets;j++) for (let i=0;i<NR;i++){
+    const k = j*NR+i;
+    ink[k] = band[k] || inkAt(r, u[j], i, off[j], lo, hi);
+  }
+  return { sheets, folds: mmf(ink, sheets, cfg.h, cfg.mt, cfg.mb, cfg.minf, cfg.gap, cfg.tech) };
+}
+
+/* ---------- dessin ---------- */
+function draw(cv, cfg, sheets, fs, kind){
+  const g = cv.getContext('2d'), W = cv.width, H = cv.height, pad = Math.round(H*0.05);
+  g.fillStyle = '#262d36'; g.fillRect(0,0,W,H);
+  const y = mm => pad + mm/cfg.h*(H-2*pad);
+  const a = cfg.ang*Math.PI/180, R = (W-2*pad)/2, cx = W/2;
+  const xOf = j => kind==='fan'
+    ? cx + R*Math.sin(-a/2 + a*(j-0.5)/sheets)/Math.sin(a/2)
+    : pad + (j-0.5)*((W-2*pad)/sheets);
+  g.lineWidth = Math.max(0.7, (W-2*pad)/sheets*0.8);
+  g.strokeStyle = '#3a434f';
+  for (let j=1;j<=sheets;j++){
+    const x = xOf(j);
+    g.beginPath(); g.moveTo(x,pad); g.lineTo(x,H-pad); g.stroke();
+  }
+  g.strokeStyle = '#efe9da';
+  fs.forEach(f => { const x = xOf(f.sheet);
+    g.beginPath(); g.moveTo(x,y(f.a)); g.lineTo(x,y(f.b)); g.stroke(); });
+}
+
+/* ---------- galerie ---------- */
+const BASE = {mot:'Merci',police:"Georgia,'Times New Roman',serif",gras:700,np:480,h:205,
+  mt:20,mb:20,garde:18,pas:1,proj:'fan',ang:180,tech:1,minf:5,gap:4,
+  ondul:'none',amp:0.1,ampb:0.08,thick:0.06,mir:false,cyc:1};
+const PRESETS = [
+  {...BASE, mot:'Merci', police:"'Snell Roundhand','Brush Script MT',cursive", tech:3, label:'Merci', note:'Anglaise, 480 pages'},
+  {...BASE, mot:'Amour', label:'Amour', note:'Classique, pliage simple'},
+  {...BASE, mot:'HOME', police:'Impact,Haettenschweiler,sans-serif', np:620, tech:3, label:'HOME', note:'Bâton large, 620 pages'},
+  {...BASE, mot:'2026', np:560, tech:3, label:'2026', note:'Chiffres, avec découpe'},
+  {...BASE, mot:'Papa', ondul:'mot', amp:0.14, cyc:1, tech:3, label:'Papa', note:'Le mot ondule'},
+  {...BASE, mot:'Oui', ondul:'bloc', tech:3, np:520, label:'Oui', note:'Encadré de vagues'},
+];
+function gallery(){
+  const box = $('gal');
+  PRESETS.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'card';
+    b.innerHTML = `<canvas width="560" height="300"></canvas>
+      <div class="cap"><strong>${p.label}</strong><span>${p.note}</span></div>`;
+    const {sheets, folds} = build(p);
+    draw(b.querySelector('canvas'), p, sheets, folds, 'fan');
+    b.onclick = () => { apply(p); location.hash = '#generateur'; };
+    box.appendChild(b);
+  });
+}
+
+/* ---------- interface ---------- */
+function readCfg(){
+  return {
+    mot:$('mot').value, police:$('police').value, gras:Number($('gras').value),
+    np:Number($('np').value), h:Number($('h').value),
+    mt:Number($('mt').value), mb:Number($('mb').value),
+    garde:Number($('garde').value), pas:Number($('pas').value),
+    proj:$('proj').value, ang:Number($('ang').value), tech:Number($('tech').value),
+    minf:Number($('minf').value), gap:Number($('gap').value),
+    ondul:$('ondul').value, amp:Number($('amp').value)/100,
+    ampb:Number($('ampb').value)/100, thick:Number($('thick').value)/100,
+    mir:$('mir').value === '1', cyc:Number($('cyc').value)
+  };
+}
+function apply(p){
+  $('mot').value = p.mot; $('police').value = p.police; $('gras').value = p.gras;
+  $('np').value = p.np; $('h').value = p.h; $('tech').value = p.tech;
+  $('ondul').value = p.ondul; $('amp').value = Math.round(p.amp*100);
+  $('ampb').value = Math.round(p.ampb*100); $('cyc').value = p.cyc;
+  sync(); run();
+}
+function sync(){
+  const m = $('ondul').value;
+  $('rAmp').hidden = !(m==='mot'||m==='deux');
+  $('rAmpB').hidden = !(m==='bloc'||m==='deux');
+  $('rThick').hidden = $('rAmpB').hidden;
+  $('rMir').hidden = $('rAmpB').hidden;
+  $('rCyc').hidden = (m==='none');
+  $('angv').textContent = $('ang').value;
+  $('ampv').textContent = $('amp').value;
+  $('ampbv').textContent = $('ampb').value;
+  $('cycv').textContent = $('cyc').value;
+
+  const w = $('warn'), bloc = (m==='bloc'||m==='deux');
+  if (bloc && $('tech').value === '1'){
+    w.className = 'warn on';
+    w.textContent = "Les vagues demandent trois bandes par feuille, ce que le pliage simple ne permet pas. Passez la méthode sur « avec découpe », ou faites onduler le mot seul.";
+  } else w.className = 'warn';
+}
+function run(){
+  const cfg = readCfg();
+  const r = build(cfg);
+  nSheets = r.sheets; folds = r.folds;
+  draw($('cv'), cfg, nSheets, folds, view);
+
+  const m = new Map();
+  folds.forEach(f => { if(!m.has(f.sheet)) m.set(f.sheet,[]); m.get(f.sheet).push(f); });
+  $('sSheets').textContent = m.size;
+  $('sMarks').textContent = folds.length*2;
+  $('sTime').textContent = Math.max(1, Math.round(m.size/60));
+  $('tb').innerHTML = [...m.entries()].map(([s,fs]) => {
+    const c = []; fs.forEach(f => c.push(f.a.toFixed(1), f.b.toFixed(1)));
+    while (c.length < 6) c.push('');
+    return `<tr><td>${s}</td>${c.slice(0,6).map(v=>`<td>${v}</td>`).join('')}</tr>`;
+  }).join('');
+}
+
+let t; const debounce = () => { clearTimeout(t); t = setTimeout(run, 140); };
+['mot','police','gras','np','h','tech','mt','mb','garde','pas','proj','ang',
+ 'ondul','amp','ampb','thick','mir','cyc','minf','gap']
+  .forEach(id => $(id).addEventListener('input', () => { sync(); debounce(); }));
+
+$('tFan').onclick = () => { view='fan'; $('tFan').setAttribute('aria-pressed','true');
+  $('tFlat').setAttribute('aria-pressed','false'); run(); };
+$('tFlat').onclick = () => { view='flat'; $('tFlat').setAttribute('aria-pressed','true');
+  $('tFan').setAttribute('aria-pressed','false'); run(); };
+
+$('pr').onclick = () => window.print();
+
+/* ---------- export ---------- */
+function grouped(){
+  const m = new Map();
+  folds.forEach(f => { if(!m.has(f.sheet)) m.set(f.sheet,[]); m.get(f.sheet).push(f); });
+  return m;
+}
+function cells(fs){
+  const c = []; fs.forEach(f => c.push(f.a.toFixed(1), f.b.toFixed(1)));
+  while (c.length < 6) c.push('');
+  return c.slice(0,6);
+}
+function save(bytes, mime, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([bytes], {type:mime}));
+  a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function fileBase(){
+  return 'patron-' + (($('mot').value || 'mot').replace(/[^\p{L}\p{N}]+/gu,'-') || 'mot');
+}
+
+function esc(s){
+  return String(s).replace(/[\\()]/g, c => '\\'+c)
+                  .split('').map(c => c.charCodeAt(0) < 256 ? c : '?').join('');
+}
+function makePdf(){
+  const W = 595.28, H = 841.89, ml = 48, mt = 54;
+  const cfg = readCfg(), m = grouped();
+  const rows = [...m.entries()].map(([s,fs]) =>
+    String(s).padStart(3) + '  ' + cells(fs).map(v => v.padStart(5)).join(' '));
+  const head = 'Fl.  ' + ['1','2','3','4','5','6'].map(v => v.padStart(5)).join(' ');
+
+  const perCol = 56, perPage = perCol*2;
+  const pages = [];
+  for (let i = 0; i < rows.length; i += perPage) pages.push(rows.slice(i, i+perPage));
+  if (!pages.length) pages.push([]);
+
+  const meta = cfg.np + ' pages  .  page de ' + cfg.h + ' mm  .  marges '
+    + cfg.mt + '/' + cfg.mb + ' mm  .  ' + (cfg.tech === 1 ? 'pliage simple' : 'avec decoupe');
+
+  const contents = pages.map((chunk, pi) => {
+    let t = 'BT /F2 17 Tf ' + ml + ' ' + (H-mt) + ' Td (' + esc(cfg.mot || '') + ') Tj ET\n';
+    t += 'BT /F1 8 Tf ' + ml + ' ' + (H-mt-16) + ' Td (' + esc(meta) + ') Tj ET\n';
+    t += 'BT /F1 8 Tf ' + ml + ' ' + (H-mt-28) + ' Td ('
+       + esc('Mesures en mm depuis le haut. Page ' + (pi+1) + '/' + pages.length) + ') Tj ET\n';
+    const y0 = H-mt-52, rh = 11.6;
+    [0,1].forEach(c => {
+      t += 'BT /F1 8 Tf ' + (ml+c*252) + ' ' + (y0+13) + ' Td (' + esc(head) + ') Tj ET\n';
+    });
+    chunk.forEach((r,k) => {
+      const c = Math.floor(k/perCol), i = k%perCol;
+      t += 'BT /F1 8 Tf ' + (ml+c*252) + ' ' + (y0-i*rh) + ' Td (' + esc(r) + ') Tj ET\n';
+    });
+    return t;
+  });
+
+  const objs = [];
+  const kids = pages.map((_,i) => (5+i*2) + ' 0 R').join(' ');
+  objs[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+  objs[2] = '<< /Type /Pages /Count ' + pages.length + ' /Kids [' + kids + '] >>';
+  objs[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>';
+  objs[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+  pages.forEach((_,i) => {
+    objs[5+i*2] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + W.toFixed(2) + ' ' + H.toFixed(2)
+      + '] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ' + (6+i*2) + ' 0 R >>';
+    objs[6+i*2] = '<< /Length ' + contents[i].length + ' >>\nstream\n' + contents[i] + 'endstream';
+  });
+
+  let out = '%PDF-1.4\n';
+  const off = [];
+  for (let i = 1; i < objs.length; i++){
+    off[i] = out.length;
+    out += i + ' 0 obj\n' + objs[i] + '\nendobj\n';
+  }
+  const xref = out.length;
+  out += 'xref\n0 ' + objs.length + '\n0000000000 65535 f \n';
+  for (let i = 1; i < objs.length; i++)
+    out += String(off[i]).padStart(10,'0') + ' 00000 n \n';
+  out += 'trailer\n<< /Size ' + objs.length + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF';
+
+  const bytes = new Uint8Array(out.length);
+  for (let i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 0xff;
+  return bytes;
+}
+
+const menu = $('menu');
+function closeMenu(){ menu.classList.remove('on'); $('dl').setAttribute('aria-expanded','false'); }
+$('dl').onclick = e => {
+  e.stopPropagation();
+  const on = menu.classList.toggle('on');
+  $('dl').setAttribute('aria-expanded', String(on));
+};
+document.addEventListener('click', closeMenu);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+menu.addEventListener('click', e => e.stopPropagation());
+
+$('dlPdf').onclick = () => { save(makePdf(), 'application/pdf', fileBase()+'.pdf'); closeMenu(); };
+$('dlCsv').onclick = () => {
+  let csv = 'feuille;repere_1;repere_2;repere_3;repere_4;repere_5;repere_6\n';
+  grouped().forEach((fs,s) => { csv += s + ';' + cells(fs).join(';') + '\n'; });
+  save('\ufeff'+csv, 'text/csv;charset=utf-8', fileBase()+'.csv');
+  closeMenu();
+};
+
+sync(); run(); gallery();
+})();
+</script>
