@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Plieur · patrons de pliage de livre</title>
+<title>Millefeuille · patrons de pliage de livre</title>
 <meta name="description" content="Générez gratuitement le patron de pliage d'un mot dans un livre.">
 <style>
   :root{
@@ -88,6 +88,8 @@
        letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);
        border-bottom:1px solid var(--line);padding-bottom:8px;margin-top:6px}
 
+  .status{font:400 14px/1.5 ui-sans-serif,system-ui,sans-serif;color:var(--ink-2);margin:10px 0 0;min-height:21px}
+  .status:empty{display:none}
   .warn{display:none;margin:20px 0 0;padding:12px 14px;border-left:2px solid var(--blue);
         background:#e9eef4;font-size:15px}
   .warn.on{display:block}
@@ -144,7 +146,7 @@
   @media (max-width:560px){ .form{grid-template-columns:1fr} }
   @media print{
     body{background:#fff}
-    section,header,.stage,.gal,.acts,.video,details.adv,footer,.tabs,.warn{display:none!important}
+    section,header,.stage,.gal,.acts,.video,details.adv,footer,.tabs,.warn,.status{display:none!important}
     .out{display:block!important;margin:0}
     .scroll{max-height:none;border:0}
   }
@@ -154,7 +156,7 @@
 <div class="wrap">
 
 <header class="hero">
-  <h1>Plieur</h1>
+  <h1>Millefeuille</h1>
   <p class="lede">Transformez un vieux roman en sculpture. Donnez un mot, récupérez la liste des plis à faire, page après page. <em>Gratuit, rien à installer.</em></p>
   <a class="cta" href="#generateur">Créer mon patron</a>
 </header>
@@ -179,6 +181,7 @@
       <button id="tFlat" aria-pressed="false">À plat</button>
     </div>
   </div>
+  <p class="status" id="status" role="status" aria-live="polite"></p>
 
   <div class="form">
     <div class="full">
@@ -257,9 +260,9 @@
 
   <div class="out">
     <div class="stats">
-      <div><b id="sSheets">—</b><span>feuilles à plier</span></div>
-      <div><b id="sMarks">—</b><span>repères à tracer</span></div>
-      <div><b id="sTime">—</b><span>heures de travail environ</span></div>
+      <div><b id="sSheets">…</b><span>feuilles à plier</span></div>
+      <div><b id="sMarks">…</b><span>repères à tracer</span></div>
+      <div><b id="sTime">…</b><span>heures de travail environ</span></div>
     </div>
     <div class="scroll">
       <table>
@@ -338,7 +341,7 @@
 </section>
 
 <footer>
-  <div class="wrap" style="padding:0">Plieur · les patrons sont calculés dans votre navigateur, rien n'est envoyé.</div>
+  <div class="wrap" style="padding:0">Millefeuille · les patrons sont calculés dans votre navigateur, rien n'est envoyé.</div>
 </footer>
 
 </div>
@@ -346,70 +349,60 @@
 <script>
 (() => {
 const $ = id => document.getElementById(id);
-const NR = 200;
-let folds = [], nSheets = 0, view = 'fan';
+let folds = [], nSheets = 0, view = 'fan', cfgShown = null, nCalc = 0;
 
-/* ---------- calcul ---------- */
-function sampleU(n, angleDeg, mode){
-  const out = new Array(n);
-  const a = angleDeg * Math.PI / 180;
-  for (let k = 0; k < n; k++){
-    const i = (k + 0.5) / n;
-    if (mode === 'linear' || angleDeg <= 0){ out[k] = i; continue; }
-    const phi = -a/2 + a*i;
-    out[k] = (Math.sin(phi) + Math.sin(a/2)) / (2*Math.sin(a/2));
-  }
-  return out;
-}
-function wave(n, amp, cycles){
-  const out = new Array(n).fill(0);
-  if (amp <= 0) return out;
-  for (let k = 0; k < n; k++)
-    out[k] = amp * Math.sin(2*Math.PI*cycles*(k+0.5)/n);
-  return out;
-}
-function ribbon(n, amp, cycles, thick, mirror){
-  const m = new Uint8Array(NR*n);
-  if (thick <= 0) return m;
-  const base = thick/2 + amp, half = thick/2;
-  for (let j = 0; j < n; j++){
-    const s = Math.sin(2*Math.PI*cycles*(j+0.5)/n);
-    const ct = base + amp*s;
-    const cb = 1 - base + amp*(mirror ? -s : s);
-    for (let i = 0; i < NR; i++){
-      const r = (i+0.5)/NR;
-      if (Math.abs(r-ct) <= half || Math.abs(r-cb) <= half) m[j*NR+i] = 1;
-    }
-  }
-  return m;
-}
-function mmf(ink, n, pageH, mt, mb, minFold, gap, maxMarks){
-  const usable = pageH - mt - mb, res = [];
-  for (let j = 0; j < n; j++){
-    const S = [], E = [];
-    let run = -1;
-    for (let i = 0; i < NR; i++){
-      const on = ink[j*NR+i] === 1;
-      if (on && run < 0) run = i;
-      if ((!on || i === NR-1) && run >= 0){
-        const end = on ? i+1 : i;
-        const a = mt + run/NR*usable, b = mt + end/NR*usable;
-        const last = S.length-1;
-        if (last >= 0 && a - E[last] < gap) E[last] = b;
-        else { S.push(a); E.push(b); }
-        run = -1;
-      }
-    }
-    let bands = S.map((a,k) => ({a, b:E[k]})).filter(o => o.b-o.a >= minFold);
-    if (bands.length > maxMarks)
-      bands = bands.map((o,k)=>({o,k})).sort((x,y)=>(y.o.b-y.o.a)-(x.o.b-x.o.a))
-                   .slice(0,maxMarks).sort((x,y)=>x.k-y.k).map(x=>x.o);
-    bands.forEach(o => res.push({sheet:j+1, a:+o.a.toFixed(1), b:+o.b.toFixed(1)}));
-  }
-  return res;
+/* ---------- moteur de calcul ----------
+   Le calcul est ecrit en R (millefeuille.R) et tourne dans le navigateur grace a webR,
+   R compile en WebAssembly. Le canal PostMessage evite tout en-tete a configurer
+   cote serveur. La page ne fait que dessiner le mot et afficher le resultat. */
+const WEBR_URL = 'https://webr.r-wasm.org/v0.6.0/webr.mjs';
+let webR = null, ready = false;
+
+function status(msg){ $('status').textContent = msg; }
+
+async function startEngine(){
+  status('Chargement du moteur de calcul, une dizaine de mégaoctets la première fois.');
+  const { WebR } = await import(WEBR_URL);
+  webR = new WebR({ channelType: 3 });
+  await webR.init();
+  const rep = await fetch('millefeuille.R');
+  if (!rep.ok) throw new Error('millefeuille.R : ' + rep.status);
+  await webR.evalRVoid(await rep.text());
+  ready = true;
+  status('');
 }
 
-/* ---------- lettres ---------- */
+/* Envoie les reglages et le mot dessine a R, recupere feuilles, reperes et totaux.
+   keep = true garde le resultat cote R pour les exports. */
+async function compute(cfg, keep){
+  const shelter = await new webR.Shelter();
+  try {
+    const g = raster(cfg.mot, cfg.police, cfg.gras);
+    const env = { cfg: await new shelter.RList(cfg), glyph: g ? await new shelter.RList(g) : null };
+    const code = keep
+      ? 'dernier_calcul <<- list(cfg = cfg, res = build(cfg, glyph = glyph)); dernier_calcul$res'
+      : 'build(cfg, glyph = glyph)';
+    const res = await shelter.evalR(code, { env });
+    const stats = await (await res.get('stats')).toObject({ depth: 0 });
+    return {
+      sheets: await (await res.get('sheets')).toNumber(),
+      folds: await (await res.get('folds')).toD3(),
+      stats: { sheets: stats.sheets.values[0], marks: stats.marks.values[0], hours: stats.hours.values[0] }
+    };
+  } finally { await shelter.purge(); }
+}
+async function exportBytes(what){
+  const code = what === 'pdf'
+    ? 'make_pdf(dernier_calcul$cfg, folds = dernier_calcul$res$folds)'
+    : 'charToRaw(make_csv(dernier_calcul$res$folds))';
+  const shelter = await new webR.Shelter();
+  try { return await (await shelter.evalR(code)).toTypedArray(); }
+  finally { await shelter.purge(); }
+}
+
+/* ---------- lettres ----------
+   Le canvas sert uniquement de moteur de fontes : il dessine le mot et renvoie
+   les pixels de la boite englobante de l'encre, que R projette sur les feuilles. */
 function raster(txt, family, weight){
   const c = document.createElement('canvas'), px = 220;
   const g0 = c.getContext('2d');
@@ -426,37 +419,11 @@ function raster(txt, family, weight){
     if (d[(y*c.width+x)*4+3] > 128){
       if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y;
     }
-  return x1 < 0 ? null : {d, W:c.width, x0, x1, y0, y1};
-}
-function inkAt(r, u, row, off, lo, hi){
-  const x = Math.round(r.x0 + u*(r.x1-r.x0));
-  const dv = ((row+0.5)/NR - off - lo) / (hi-lo);
-  if (dv < 0 || dv > 1) return 0;
-  const y = Math.round(r.y0 + dv*(r.y1-r.y0));
-  return r.d[(y*r.W+x)*4+3] > 128 ? 1 : 0;
-}
-
-/* ---------- pipeline ---------- */
-function build(cfg){
-  const sheets = Math.max(1, Math.floor((Math.floor(cfg.np/2) - 2*cfg.garde)/cfg.pas));
-  const u = sampleU(sheets, cfg.ang, cfg.proj);
-  const ampW = (cfg.ondul==='mot'||cfg.ondul==='deux') ? cfg.amp : 0;
-  const ampB = (cfg.ondul==='bloc'||cfg.ondul==='deux') ? cfg.ampb : 0;
-  const thk  = (cfg.ondul==='bloc'||cfg.ondul==='deux') ? cfg.thick : 0;
-  const off  = wave(sheets, ampW, cfg.cyc);
-  const band = ribbon(sheets, ampB, cfg.cyc, thk, cfg.mir);
-
-  let lo = thk > 0 ? thk + 2*ampB + 0.03 + ampW : ampW;
-  let hi = 1 - lo;
-  if (hi - lo < 0.2){ lo = 0.4; hi = 0.6; }
-
-  const r = raster(cfg.mot, cfg.police, cfg.gras);
-  const ink = new Uint8Array(NR*sheets);
-  if (r) for (let j=0;j<sheets;j++) for (let i=0;i<NR;i++){
-    const k = j*NR+i;
-    ink[k] = band[k] || inkAt(r, u[j], i, off[j], lo, hi);
-  }
-  return { sheets, folds: mmf(ink, sheets, cfg.h, cfg.mt, cfg.mb, cfg.minf, cfg.gap, cfg.tech) };
+  if (x1 < 0) return null;
+  const w = x1-x0+1, h = y1-y0+1, px1 = new Uint8Array(w*h);
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++)
+    px1[y*w+x] = d[((y0+y)*c.width + x0+x)*4+3] > 128 ? 1 : 0;
+  return {px: px1, x0, x1, y0, y1};
 }
 
 /* ---------- dessin ---------- */
@@ -491,18 +458,27 @@ const PRESETS = [
   {...BASE, mot:'Papa', ondul:'mot', amp:0.14, cyc:1, tech:3, label:'Papa', note:'Le mot ondule'},
   {...BASE, mot:'Oui', ondul:'bloc', tech:3, np:520, label:'Oui', note:'Encadré de vagues'},
 ];
-function gallery(){
+function presetCfg(p){
+  const {label, note, ...cfg} = p;
+  return cfg;
+}
+async function gallery(){
   const box = $('gal');
-  PRESETS.forEach(p => {
+  for (const p of PRESETS){
     const b = document.createElement('button');
     b.className = 'card';
     b.innerHTML = `<canvas width="560" height="300"></canvas>
       <div class="cap"><strong>${p.label}</strong><span>${p.note}</span></div>`;
-    const {sheets, folds} = build(p);
-    draw(b.querySelector('canvas'), p, sheets, folds, 'fan');
     b.onclick = () => { apply(p); location.hash = '#generateur'; };
     box.appendChild(b);
-  });
+    const cfg = presetCfg(p);
+    try {
+      const {sheets, folds} = await compute(cfg, false);
+      draw(b.querySelector('canvas'), cfg, sheets, folds, 'fan');
+    } catch (e) {
+      b.querySelector('.cap span').textContent = 'Aperçu indisponible';
+    }
+  }
 }
 
 /* ---------- interface ---------- */
@@ -544,22 +520,37 @@ function sync(){
     w.textContent = "Les vagues demandent trois bandes par feuille, ce que le pliage simple ne permet pas. Passez la méthode sur « avec découpe », ou faites onduler le mot seul.";
   } else w.className = 'warn';
 }
-function run(){
-  const cfg = readCfg();
-  const r = build(cfg);
-  nSheets = r.sheets; folds = r.folds;
+function show(cfg, r){
+  nSheets = r.sheets; folds = r.folds; cfgShown = cfg;
   draw($('cv'), cfg, nSheets, folds, view);
+  $('sSheets').textContent = r.stats.sheets;
+  $('sMarks').textContent = r.stats.marks;
+  $('sTime').textContent = r.stats.hours;
+  const m = grouped();
+  $('tb').innerHTML = [...m.entries()].map(([s,fs]) =>
+    `<tr><td>${s}</td>${cells(fs).map(v=>`<td>${v}</td>`).join('')}</tr>`).join('');
+  $('tb').dataset.calcul = String(++nCalc);
+}
 
-  const m = new Map();
-  folds.forEach(f => { if(!m.has(f.sheet)) m.set(f.sheet,[]); m.get(f.sheet).push(f); });
-  $('sSheets').textContent = m.size;
-  $('sMarks').textContent = folds.length*2;
-  $('sTime').textContent = Math.max(1, Math.round(m.size/60));
-  $('tb').innerHTML = [...m.entries()].map(([s,fs]) => {
-    const c = []; fs.forEach(f => c.push(f.a.toFixed(1), f.b.toFixed(1)));
-    while (c.length < 6) c.push('');
-    return `<tr><td>${s}</td>${c.slice(0,6).map(v=>`<td>${v}</td>`).join('')}</tr>`;
-  }).join('');
+/* Un seul calcul a la fois ; si les reglages changent pendant le calcul,
+   on repart des reglages les plus recents une fois celui-ci fini. */
+let running = false, again = false;
+async function run(){
+  if (!ready) return;
+  if (running){ again = true; return; }
+  running = true;
+  try {
+    do {
+      again = false;
+      const cfg = readCfg();
+      try {
+        show(cfg, await compute(cfg, true));
+        status('');
+      } catch (e) {
+        status('Le calcul a échoué : ' + e.message);
+      }
+    } while (again);
+  } finally { running = false; }
 }
 
 let t; const debounce = () => { clearTimeout(t); t = setTimeout(run, 140); };
@@ -567,10 +558,11 @@ let t; const debounce = () => { clearTimeout(t); t = setTimeout(run, 140); };
  'ondul','amp','ampb','thick','mir','cyc','minf','gap']
   .forEach(id => $(id).addEventListener('input', () => { sync(); debounce(); }));
 
+function redraw(){ draw($('cv'), cfgShown || readCfg(), nSheets, folds, view); }
 $('tFan').onclick = () => { view='fan'; $('tFan').setAttribute('aria-pressed','true');
-  $('tFlat').setAttribute('aria-pressed','false'); run(); };
+  $('tFlat').setAttribute('aria-pressed','false'); redraw(); };
 $('tFlat').onclick = () => { view='flat'; $('tFlat').setAttribute('aria-pressed','true');
-  $('tFan').setAttribute('aria-pressed','false'); run(); };
+  $('tFan').setAttribute('aria-pressed','false'); redraw(); };
 
 $('pr').onclick = () => window.print();
 
@@ -595,70 +587,6 @@ function fileBase(){
   return 'patron-' + (($('mot').value || 'mot').replace(/[^\p{L}\p{N}]+/gu,'-') || 'mot');
 }
 
-function esc(s){
-  return String(s).replace(/[\\()]/g, c => '\\'+c)
-                  .split('').map(c => c.charCodeAt(0) < 256 ? c : '?').join('');
-}
-function makePdf(){
-  const W = 595.28, H = 841.89, ml = 48, mt = 54;
-  const cfg = readCfg(), m = grouped();
-  const rows = [...m.entries()].map(([s,fs]) =>
-    String(s).padStart(3) + '  ' + cells(fs).map(v => v.padStart(5)).join(' '));
-  const head = 'Fl.  ' + ['1','2','3','4','5','6'].map(v => v.padStart(5)).join(' ');
-
-  const perCol = 56, perPage = perCol*2;
-  const pages = [];
-  for (let i = 0; i < rows.length; i += perPage) pages.push(rows.slice(i, i+perPage));
-  if (!pages.length) pages.push([]);
-
-  const meta = cfg.np + ' pages  .  page de ' + cfg.h + ' mm  .  marges '
-    + cfg.mt + '/' + cfg.mb + ' mm  .  ' + (cfg.tech === 1 ? 'pliage simple' : 'avec decoupe');
-
-  const contents = pages.map((chunk, pi) => {
-    let t = 'BT /F2 17 Tf ' + ml + ' ' + (H-mt) + ' Td (' + esc(cfg.mot || '') + ') Tj ET\n';
-    t += 'BT /F1 8 Tf ' + ml + ' ' + (H-mt-16) + ' Td (' + esc(meta) + ') Tj ET\n';
-    t += 'BT /F1 8 Tf ' + ml + ' ' + (H-mt-28) + ' Td ('
-       + esc('Mesures en mm depuis le haut. Page ' + (pi+1) + '/' + pages.length) + ') Tj ET\n';
-    const y0 = H-mt-52, rh = 11.6;
-    [0,1].forEach(c => {
-      t += 'BT /F1 8 Tf ' + (ml+c*252) + ' ' + (y0+13) + ' Td (' + esc(head) + ') Tj ET\n';
-    });
-    chunk.forEach((r,k) => {
-      const c = Math.floor(k/perCol), i = k%perCol;
-      t += 'BT /F1 8 Tf ' + (ml+c*252) + ' ' + (y0-i*rh) + ' Td (' + esc(r) + ') Tj ET\n';
-    });
-    return t;
-  });
-
-  const objs = [];
-  const kids = pages.map((_,i) => (5+i*2) + ' 0 R').join(' ');
-  objs[1] = '<< /Type /Catalog /Pages 2 0 R >>';
-  objs[2] = '<< /Type /Pages /Count ' + pages.length + ' /Kids [' + kids + '] >>';
-  objs[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>';
-  objs[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
-  pages.forEach((_,i) => {
-    objs[5+i*2] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + W.toFixed(2) + ' ' + H.toFixed(2)
-      + '] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ' + (6+i*2) + ' 0 R >>';
-    objs[6+i*2] = '<< /Length ' + contents[i].length + ' >>\nstream\n' + contents[i] + 'endstream';
-  });
-
-  let out = '%PDF-1.4\n';
-  const off = [];
-  for (let i = 1; i < objs.length; i++){
-    off[i] = out.length;
-    out += i + ' 0 obj\n' + objs[i] + '\nendobj\n';
-  }
-  const xref = out.length;
-  out += 'xref\n0 ' + objs.length + '\n0000000000 65535 f \n';
-  for (let i = 1; i < objs.length; i++)
-    out += String(off[i]).padStart(10,'0') + ' 00000 n \n';
-  out += 'trailer\n<< /Size ' + objs.length + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF';
-
-  const bytes = new Uint8Array(out.length);
-  for (let i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 0xff;
-  return bytes;
-}
-
 const menu = $('menu');
 function closeMenu(){ menu.classList.remove('on'); $('dl').setAttribute('aria-expanded','false'); }
 $('dl').onclick = e => {
@@ -670,14 +598,28 @@ document.addEventListener('click', closeMenu);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 menu.addEventListener('click', e => e.stopPropagation());
 
-$('dlPdf').onclick = () => { save(makePdf(), 'application/pdf', fileBase()+'.pdf'); closeMenu(); };
-$('dlCsv').onclick = () => {
-  let csv = 'feuille;repere_1;repere_2;repere_3;repere_4;repere_5;repere_6\n';
-  grouped().forEach((fs,s) => { csv += s + ';' + cells(fs).join(';') + '\n'; });
-  save('\ufeff'+csv, 'text/csv;charset=utf-8', fileBase()+'.csv');
+async function download(what){
   closeMenu();
-};
+  if (!ready) return;
+  if (running){ status('Le patron est en train de se recalculer, réessayez dans un instant.'); return; }
+  status(what === 'pdf' ? 'Préparation du PDF…' : 'Préparation du CSV…');
+  try {
+    const bytes = await exportBytes(what);
+    if (what === 'pdf') save(bytes, 'application/pdf', fileBase()+'.pdf');
+    else save(bytes, 'text/csv;charset=utf-8', fileBase()+'.csv');
+    status('');
+  } catch (e) { status("L'export a échoué : " + e.message); }
+}
+$('dlPdf').onclick = () => download('pdf');
+$('dlCsv').onclick = () => download('csv');
 
-sync(); run(); gallery();
+/* ---------- demarrage ---------- */
+sync();
+draw($('cv'), readCfg(), 1, [], view);
+startEngine()
+  .then(async () => { await run(); await gallery(); })
+  .catch(e => {
+    status("Le moteur de calcul n'a pas pu être chargé. Vérifiez votre connexion, puis rechargez la page. (" + e.message + ")");
+  });
 })();
 </script>

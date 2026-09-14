@@ -1,27 +1,73 @@
-name: Deploy site
+name: Tests et déploiement
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  tests:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Installer testthat et jsonlite
+        run: Rscript -e 'install.packages(c("testthat", "jsonlite"))'
+
+      - name: Golden master en R natif
+        run: Rscript tests/run.R
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Installer les outils de test
+        working-directory: tests
+        run: npm ci --omit=dev
+
+      - name: Les fixtures se regenerent a l'identique
+        working-directory: tests
+        run: |
+          npm run fixtures
+          git diff --exit-code -- fixtures
+
+      - name: Golden master dans webR
+        working-directory: tests
+        run: npm run webr
+
+  deploy:
+    needs: tests
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Préparer le site
+        run: |
+          mkdir site
+          cp index.html millefeuille.R site/
+          for d in photos; do
+            if [ -d "$d" ]; then cp -r "$d" site/; fi
+          done
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -29,7 +75,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: site
 
       - name: Deploy
         id: deployment
