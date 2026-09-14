@@ -1,9 +1,9 @@
-# Plieur
+# Millefeuille
 
 Générateur de patrons de pliage de livre : un mot, les mesures du livre, et la liste
 des repères à tracer sur chaque feuille.
 
-Le calcul est écrit en R (`plieur.R`) et tourne dans le navigateur grâce à webR.
+Le calcul est écrit en R (`millefeuille.R`) et tourne dans le navigateur grâce à webR.
 La page `index.html` dessine le mot et affiche le résultat.
 
 ## Lancer en local

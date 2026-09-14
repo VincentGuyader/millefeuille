@@ -1,4 +1,4 @@
-# Plieur
+# Millefeuille
 
 Tu reprends un projet en cours. Lis ce fichier avant de toucher au code.
 
@@ -15,7 +15,7 @@ objet fait main. Ils ne savent pas ce qu'est un raster, une projection ou un run
 
 ```
 index.html                      la page : mise en page, dessin du mot, affichage
-plieur.R                        tout le calcul, en R de base
+millefeuille.R                        tout le calcul, en R de base
 tests/                          golden master et vérifications (voir plus bas)
 .github/workflows/deploy.yml    tests puis déploiement GitHub Pages
 ```
@@ -34,7 +34,7 @@ Conséquences à connaître :
 - Le canal de communication avec webR est `PostMessage` (`channelType: 3`). Il ne
   demande aucun en-tête COOP/COEP, ce que GitHub Pages ne saurait pas fournir. Ne pas
   passer au canal SharedArrayBuffer.
-- La page doit être servie par HTTP (elle charge `plieur.R` par `fetch`). En local :
+- La page doit être servie par HTTP (elle charge `millefeuille.R` par `fetch`). En local :
   `python3 -m http.server 8000` à la racine, puis `http://localhost:8000/`.
 - Pas de build, pas de dépendance npm côté site, pas de framework. CSS dans un
   `<style>`, JavaScript dans une IIFE en bas de page. Garde cette contrainte.
@@ -48,7 +48,7 @@ Conséquences à connaître :
   écrit pour rester bien en dessous (environ 0,5 s pour 1800 repères dans webR),
   ne pas y réintroduire de boucle par ligne coûteuse.
 
-## L'architecture du calcul (plieur.R)
+## L'architecture du calcul (millefeuille.R)
 
 `build(cfg, glyph)` enchaîne :
 
@@ -105,7 +105,7 @@ pas chez d'autres. `qpdf --check` et `mutool draw -F txt` sont de bons juges.
 
 Trois niveaux, du plus rapide au plus complet :
 
-1. `Rscript tests/run.R` (depuis la racine). Golden master : `plieur.R` doit reproduire
+1. `Rscript tests/run.R` (depuis la racine). Golden master : `millefeuille.R` doit reproduire
    au bit près les résultats de la version JavaScript d'origine, figés dans
    `tests/fixtures/` (repères, totaux, CSV, PDF) pour 23 réglages et 4 glyphes
    synthétiques, dont un cas sans aucun pli et un cas à valeurs négatives. `tests/legacy/` contient la copie de référence de ce JavaScript et le
@@ -118,8 +118,8 @@ Trois niveaux, du plus rapide au plus complet :
    commit du dépôt (`04f062e`) :
 
    ```sh
-   git worktree add ../plieur-js 04f062e
-   (cd ../plieur-js && python3 -m http.server 8801) &
+   git worktree add ../millefeuille-js 04f062e
+   (cd ../millefeuille-js && python3 -m http.server 8801) &
    python3 -m http.server 8802 &
    cd tests && npm install && npm run e2e
    ```
@@ -132,7 +132,7 @@ La CI (`deploy.yml`) lance les niveaux 1 et 2, et vérifie que `npm run fixtures
 régénère `tests/fixtures/` à l'identique.
 
 Si tu changes le comportement du calcul volontairement, régénère les fixtures avec
-`npm run fixtures` seulement après avoir mis à jour `tests/legacy/plieur-legacy.js` en
+`npm run fixtures` seulement après avoir mis à jour `tests/legacy/millefeuille-legacy.js` en
 conséquence, et dis-le dans la PR.
 
 ## Ce qui reste à faire

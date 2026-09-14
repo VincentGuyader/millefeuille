@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Plieur · patrons de pliage de livre</title>
+<title>Millefeuille · patrons de pliage de livre</title>
 <meta name="description" content="Générez gratuitement le patron de pliage d'un mot dans un livre.">
 <style>
   :root{
@@ -156,7 +156,7 @@
 <div class="wrap">
 
 <header class="hero">
-  <h1>Plieur</h1>
+  <h1>Millefeuille</h1>
   <p class="lede">Transformez un vieux roman en sculpture. Donnez un mot, récupérez la liste des plis à faire, page après page. <em>Gratuit, rien à installer.</em></p>
   <a class="cta" href="#generateur">Créer mon patron</a>
 </header>
@@ -341,7 +341,7 @@
 </section>
 
 <footer>
-  <div class="wrap" style="padding:0">Plieur · les patrons sont calculés dans votre navigateur, rien n'est envoyé.</div>
+  <div class="wrap" style="padding:0">Millefeuille · les patrons sont calculés dans votre navigateur, rien n'est envoyé.</div>
 </footer>
 
 </div>
@@ -352,7 +352,7 @@ const $ = id => document.getElementById(id);
 let folds = [], nSheets = 0, view = 'fan', cfgShown = null, nCalc = 0;
 
 /* ---------- moteur de calcul ----------
-   Le calcul est ecrit en R (plieur.R) et tourne dans le navigateur grace a webR,
+   Le calcul est ecrit en R (millefeuille.R) et tourne dans le navigateur grace a webR,
    R compile en WebAssembly. Le canal PostMessage evite tout en-tete a configurer
    cote serveur. La page ne fait que dessiner le mot et afficher le resultat. */
 const WEBR_URL = 'https://webr.r-wasm.org/v0.6.0/webr.mjs';
@@ -365,8 +365,8 @@ async function startEngine(){
   const { WebR } = await import(WEBR_URL);
   webR = new WebR({ channelType: 3 });
   await webR.init();
-  const rep = await fetch('plieur.R');
-  if (!rep.ok) throw new Error('plieur.R : ' + rep.status);
+  const rep = await fetch('millefeuille.R');
+  if (!rep.ok) throw new Error('millefeuille.R : ' + rep.status);
   await webR.evalRVoid(await rep.text());
   ready = true;
   status('');
@@ -380,7 +380,7 @@ async function compute(cfg, keep){
     const g = raster(cfg.mot, cfg.police, cfg.gras);
     const env = { cfg: await new shelter.RList(cfg), glyph: g ? await new shelter.RList(g) : null };
     const code = keep
-      ? 'plieur_last <<- list(cfg = cfg, res = build(cfg, glyph = glyph)); plieur_last$res'
+      ? 'dernier_calcul <<- list(cfg = cfg, res = build(cfg, glyph = glyph)); dernier_calcul$res'
       : 'build(cfg, glyph = glyph)';
     const res = await shelter.evalR(code, { env });
     const stats = await (await res.get('stats')).toObject({ depth: 0 });
@@ -393,8 +393,8 @@ async function compute(cfg, keep){
 }
 async function exportBytes(what){
   const code = what === 'pdf'
-    ? 'make_pdf(plieur_last$cfg, folds = plieur_last$res$folds)'
-    : 'charToRaw(make_csv(plieur_last$res$folds))';
+    ? 'make_pdf(dernier_calcul$cfg, folds = dernier_calcul$res$folds)'
+    : 'charToRaw(make_csv(dernier_calcul$res$folds))';
   const shelter = await new webR.Shelter();
   try { return await (await shelter.evalR(code)).toTypedArray(); }
   finally { await shelter.purge(); }

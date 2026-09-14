@@ -1,4 +1,4 @@
-// Copie de reference du calcul JavaScript d'origine (index.html, commit 04f062e).
+// Copie de reference du calcul JavaScript d'origine du site (index.html, commit 04f062e).
 // Sert uniquement a produire les fixtures du golden master ; ne pas modifier.
 // Seule adaptation : raster() est remplace par un glyphe synthetique passe en argument,
 // car node n'a pas de canvas, et makePdf() recoit cfg et folds au lieu de lire la page.

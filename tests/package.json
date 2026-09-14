@@ -1,5 +1,5 @@
 {
-  "name": "plieur-tests",
+  "name": "millefeuille-tests",
   "private": true,
   "description": "Outils de test du calcul R sous webR et dans un navigateur",
   "scripts": {

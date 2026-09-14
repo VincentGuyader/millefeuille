@@ -3,7 +3,7 @@
 # Lancer : Rscript -e 'testthat::test_dir("tests")'
 
 library(testthat)
-source(file.path(root, "plieur.R"))
+source(file.path(root, "millefeuille.R"))
 
 fx_dir <- file.path(root, "tests", "fixtures")
 glyphes <- jsonlite::fromJSON(file.path(fx_dir, "glyphes.json"), simplifyVector = FALSE)

@@ -1,4 +1,4 @@
-# Plieur : calcul du patron de pliage.
+# Millefeuille : calcul du patron de pliage.
 #
 # Ce fichier est charge dans le navigateur par webR (R compile en WebAssembly).
 # Il ne depend que de R de base. Le navigateur ne fait que deux choses autour :

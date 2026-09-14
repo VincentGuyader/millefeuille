@@ -12,7 +12,7 @@ const fxDir = path.join(here, 'fixtures');
 
 const webR = new WebR({ channelType: 3 });
 await webR.init();
-await webR.evalRVoid(fs.readFileSync(path.join(root, 'plieur.R'), 'utf8'));
+await webR.evalRVoid(fs.readFileSync(path.join(root, 'millefeuille.R'), 'utf8'));
 
 const glyphes = JSON.parse(fs.readFileSync(path.join(fxDir, 'glyphes.json'), 'utf8'));
 function asGlyph(g){

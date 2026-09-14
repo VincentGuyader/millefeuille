@@ -14,7 +14,7 @@ function findChrome(){
   }
   throw new Error('Aucun navigateur trouve : definir CHROME_PATH');
 }
-const DL = process.env.DL || fs.mkdtempSync(path.join(os.tmpdir(), 'plieur-e2e-'));
+const DL = process.env.DL || fs.mkdtempSync(path.join(os.tmpdir(), 'millefeuille-e2e-'));
 
 const CASES = [
   { name: 'defaut', set: {} },

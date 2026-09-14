@@ -64,7 +64,7 @@ jobs:
       - name: Préparer le site
         run: |
           mkdir site
-          cp index.html plieur.R site/
+          cp index.html millefeuille.R site/
           for d in photos; do
             if [ -d "$d" ]; then cp -r "$d" site/; fi
           done
