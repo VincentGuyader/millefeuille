@@ -15,8 +15,9 @@ objet fait main. Ils ne savent pas ce qu'est un raster, une projection ou un run
 
 ```
 index.html                      la page : mise en page, dessin du mot, affichage
-millefeuille.R                        tout le calcul, en R de base
+millefeuille.R                  tout le calcul, en R de base
 tests/                          golden master et vérifications (voir plus bas)
+docs/                           images du README, jamais déployées
 .github/workflows/deploy.yml    tests puis déploiement GitHub Pages
 ```
 
@@ -108,8 +109,9 @@ Trois niveaux, du plus rapide au plus complet :
 1. `Rscript tests/run.R` (depuis la racine). Golden master : `millefeuille.R` doit reproduire
    au bit près les résultats de la version JavaScript d'origine, figés dans
    `tests/fixtures/` (repères, totaux, CSV, PDF) pour 23 réglages et 4 glyphes
-   synthétiques, dont un cas sans aucun pli et un cas à valeurs négatives. `tests/legacy/` contient la copie de référence de ce JavaScript et le
-   générateur des fixtures ; on ne les modifie pas.
+   synthétiques, dont un cas sans aucun pli et un cas à valeurs négatives.
+   `tests/legacy/` contient la copie de référence de ce JavaScript et le générateur
+   des fixtures ; on ne les modifie pas.
 2. `cd tests && npm install && npm run webr`. Rejoue le même golden master dans webR
    sous node, c'est-à-dire dans le vrai moteur (R 4.6 en WebAssembly).
 3. `npm run e2e` dans `tests/`, avec deux serveurs locaux : l'ancienne page sur le
