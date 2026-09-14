@@ -43,6 +43,10 @@ Conséquences à connaître :
   fait `compute()`.
 - Un texte R qui commence par un BOM perd ce BOM au passage vers JavaScript. C'est
   pour ça que le CSV transite en octets (`charToRaw`).
+- Le téléchargement part après un `await` : le navigateur n'accepte un `a.click()`
+  programmé que quelques secondes après le clic de l'utilisateur. `make_pdf()` est
+  écrit pour rester bien en dessous (environ 0,5 s pour 1800 repères dans webR),
+  ne pas y réintroduire de boucle par ligne coûteuse.
 
 ## L'architecture du calcul (plieur.R)
 
@@ -64,6 +68,15 @@ Conséquences à connaître :
 Les arrondis reproduisent ceux de JavaScript à l'identique (`js_round`, `to_fixed1`,
 `js_num`) : c'est ce qui permet au golden master d'exiger l'égalité stricte, PDF
 compris. Ne pas les remplacer par `round()`, qui arrondit les .5 différemment.
+
+Une seule divergence volontaire avec l'ancienne page : quand le mot est vide (ou sans
+encre), l'ancienne page ne dessinait rien du tout, vagues comprises ; la version R
+garde les vagues. Le golden master n'a pas de cas à mot vide pour cette raison, le
+comportement est fixé par un test dédié dans `tests/test-golden.R`.
+
+La page passe le mot dessiné sous forme de liste R (`px`, `x0`, `x1`, `y0`, `y1`), ou
+`NA` quand il n'y a pas d'encre : un `null` JavaScript devient `NA` en traversant webR,
+pas `NULL`. Le garde de `build()` accepte les deux, garde-le dans cet ordre.
 
 `draw()` dans la page rend l'aperçu, en vue « livre ouvert » ou « à plat ». La vue
 livre ouvert est celle qui compte, c'est le rendu réel.
@@ -94,14 +107,29 @@ Trois niveaux, du plus rapide au plus complet :
 
 1. `Rscript tests/run.R` (depuis la racine). Golden master : `plieur.R` doit reproduire
    au bit près les résultats de la version JavaScript d'origine, figés dans
-   `tests/fixtures/` (repères, totaux, CSV, PDF) pour 21 réglages et 4 glyphes
-   synthétiques. `tests/legacy/` contient la copie de référence de ce JavaScript et le
+   `tests/fixtures/` (repères, totaux, CSV, PDF) pour 23 réglages et 4 glyphes
+   synthétiques, dont un cas sans aucun pli et un cas à valeurs négatives. `tests/legacy/` contient la copie de référence de ce JavaScript et le
    générateur des fixtures ; on ne les modifie pas.
 2. `cd tests && npm install && npm run webr`. Rejoue le même golden master dans webR
    sous node, c'est-à-dire dans le vrai moteur (R 4.6 en WebAssembly).
 3. `npm run e2e` dans `tests/`, avec deux serveurs locaux : l'ancienne page sur le
    port 8801, la nouvelle sur le port 8802. Compare les deux dans chromium, vraies
-   polices comprises, et vérifie les exports.
+   polices comprises, et vérifie les exports. L'ancienne page est celle du premier
+   commit du dépôt (`04f062e`) :
+
+   ```sh
+   git worktree add ../plieur-js 04f062e
+   (cd ../plieur-js && python3 -m http.server 8801) &
+   python3 -m http.server 8802 &
+   cd tests && npm install && npm run e2e
+   ```
+
+   Le navigateur est cherché dans le PATH (`chromium`, `google-chrome`), sinon donner
+   son chemin dans `CHROME_PATH`. Les exports sont écrits dans un dossier temporaire,
+   ou dans `DL` si la variable est définie.
+
+La CI (`deploy.yml`) lance les niveaux 1 et 2, et vérifie que `npm run fixtures`
+régénère `tests/fixtures/` à l'identique.
 
 Si tu changes le comportement du calcul volontairement, régénère les fixtures avec
 `npm run fixtures` seulement après avoir mis à jour `tests/legacy/plieur-legacy.js` en
