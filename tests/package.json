@@ -1,7 +1,6 @@
 {
   "name": "plieur-tests",
   "private": true,
-  "type": "module",
   "description": "Outils de test du calcul R sous webR et dans un navigateur",
   "scripts": {
     "fixtures": "node legacy/make-fixtures.js",
@@ -12,6 +11,6 @@
     "webr": "0.6.0"
   },
   "devDependencies": {
-    "puppeteer-core": "^23.0.0"
+    "puppeteer-core": "^23.11.1"
   }
 }

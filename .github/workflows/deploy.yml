@@ -8,11 +8,9 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,16 +33,28 @@ jobs:
         with:
           node-version: 22
 
-      - name: Golden master dans webR
+      - name: Installer les outils de test
+        working-directory: tests
+        run: npm ci --omit=dev
+
+      - name: Les fixtures se regenerent a l'identique
         working-directory: tests
         run: |
-          npm install --omit=dev
-          npm run webr
+          npm run fixtures
+          git diff --exit-code -- fixtures
+
+      - name: Golden master dans webR
+        working-directory: tests
+        run: npm run webr
 
   deploy:
     needs: tests
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -55,6 +65,9 @@ jobs:
         run: |
           mkdir site
           cp index.html plieur.R site/
+          for d in photos; do
+            if [ -d "$d" ]; then cp -r "$d" site/; fi
+          done
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

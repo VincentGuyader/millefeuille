@@ -1,6 +1,20 @@
 // Compare la page d'origine (JS) et la nouvelle page (webR) dans un vrai navigateur.
+// Attend deux serveurs locaux : l'ancienne page sur 8801, la nouvelle sur 8802 (voir CLAUDE.md).
+// Variables : CHROME_PATH (chemin du navigateur), DL (dossier de sortie des exports).
 import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execSync } from 'node:child_process';
+
+function findChrome(){
+  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
+  for (const name of ['chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable']){
+    try { return execSync('command -v ' + name, { encoding: 'utf8' }).trim(); } catch {}
+  }
+  throw new Error('Aucun navigateur trouve : definir CHROME_PATH');
+}
+const DL = process.env.DL || fs.mkdtempSync(path.join(os.tmpdir(), 'plieur-e2e-'));
 
 const CASES = [
   { name: 'defaut', set: {} },
@@ -12,7 +26,7 @@ const CASES = [
   { name: 'vide', set: { mot: '' } },
 ];
 
-const browser = await puppeteer.launch({ executablePath: '/snap/bin/chromium', headless: true,
+const browser = await puppeteer.launch({ executablePath: findChrome(), headless: true,
   args: ['--no-sandbox', '--disable-gpu'] });
 
 async function readOut(page){
@@ -44,10 +58,11 @@ async function runSite(url, waitReady){
       const d = { mot:'Merci', police:"Georgia,'Times New Roman',serif", gras:'700', np:'480', h:'205', tech:'1', mt:'20', mb:'20', garde:'18', pas:'1', proj:'fan', ang:'180', ondul:'none', amp:'10', ampb:'8', thick:'6', mir:'0', cyc:'1', minf:'5', gap:'4' };
       for (const [id, v] of Object.entries(d)) document.getElementById(id).value = v;
     });
+    const before = await page.$eval('#tb', tb => tb.dataset.calcul || '0');
     await setCase(page, c.set);
     if (Object.keys(c.set).length === 0) await setCase(page, { mot: 'Merci' });
-    await new Promise(r => setTimeout(r, 900));
-    if (waitReady) await page.waitForFunction(() => document.getElementById('status').textContent === '', { timeout: 60000 });
+    if (waitReady) await page.waitForFunction(b => document.getElementById('tb').dataset.calcul !== b, { timeout: 60000 }, before);
+    else await new Promise(r => setTimeout(r, 900));
     out[c.name] = await readOut(page);
   }
   return { page, out };
@@ -65,9 +80,9 @@ for (const c of CASES){
 
 // export du PDF et du CSV depuis la nouvelle page : on capture le Blob passe a
 // URL.createObjectURL, le dossier de telechargement de chromium (snap) n'etant pas accessible.
+const before = await fresh.page.$eval('#tb', tb => tb.dataset.calcul);
 await setCase(fresh.page, { mot: 'Merci', tech: '3' });
-await new Promise(r => setTimeout(r, 900));
-await fresh.page.waitForFunction(() => document.getElementById('status').textContent === '');
+await fresh.page.waitForFunction(b => document.getElementById('tb').dataset.calcul !== b, {}, before);
 await fresh.page.evaluate(() => {
   window.__blobs = [];
   const orig = URL.createObjectURL;
@@ -78,8 +93,9 @@ for (const [id, ext] of [['dlPdf', 'pdf'], ['dlCsv', 'csv']]){
   await fresh.page.click('#' + id);
   await fresh.page.waitForFunction(n => window.__blobs.length >= n, { timeout: 30000 }, ext === 'pdf' ? 1 : 2);
   const bytes = await fresh.page.evaluate(async () => Array.from(new Uint8Array(await window.__blobs.at(-1).arrayBuffer())));
-  fs.writeFileSync(process.env.DL + '/patron.' + ext, Buffer.from(bytes));
+  fs.writeFileSync(path.join(DL, 'patron.' + ext), Buffer.from(bytes));
   console.log('export', ext, bytes.length, 'octets, statut :', JSON.stringify(await fresh.page.$eval('#status', e => e.textContent)));
 }
+console.log('exports ecrits dans', DL);
 await browser.close();
 process.exit(ko ? 1 : 0);
